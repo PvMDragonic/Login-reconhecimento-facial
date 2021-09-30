@@ -21,6 +21,7 @@ class JanelaPrincipal:
         _compcolor = '#d9d9d9' # X11 color: 'gray85'
         _ana1color = '#d9d9d9' # X11 color: 'gray85'
         _ana2color = '#ececec' # Closest X11 color: 'gray92'
+        self.continuar_mostrando_webcam = True
 
         # Isso aqui tá definido como 'self' só pra eu poder definir uma única vez aqui e depois usar no resto da classe.
         self.font9 = "-family {Segoe UI Light} -size 12 -weight bold"
@@ -145,38 +146,40 @@ class JanelaPrincipal:
         self.label_cpf.configure(text='''CPF:''')
 
         self.webcam_frame = tk.Frame(self.frame_principal)
-        self.webcam_frame.place(relx=0.227, rely=0.305, relheight=0.481, relwidth=0.56)
+        self.webcam_frame.place(relx=0.227, rely=0.330, relheight=0.481, relwidth=0.56)
         self.webcam_frame.configure(relief='groove')
         self.webcam_frame.configure(borderwidth="2")
         self.webcam_frame.configure(relief="groove")
         self.webcam_frame.configure(background="#d9d9d9")
 
         self.botao_tirar_foto = ttk.Button(self.frame_principal, text = "Tirar foto", command = lambda: self.botao_tirar_foto_clicado(self.frame_principal, self.botao_tirar_foto))
-        self.botao_tirar_foto.place(relx=0.438, rely=0.822, height=25, width=86)
+        self.botao_tirar_foto.place(relx=0.428, rely=0.870, height=35, width=86)
         self.botao_tirar_foto.configure(takefocus="")
 
         try:
-            cap = cv2.VideoCapture(0)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+            self.cap = cv2.VideoCapture(0)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
 
             # Cria um label dentro do frame 'frame_principal'.
             lmain = tk.Label(self.webcam_frame)
-            lmain.pack()
+            lmain.pack()         
 
             # Vai exibir o que tá sendo capturado por 'cv2.VideoCapture(0)'.
             def show_frame(): 
-                _, frame = cap.read()
-                frame = cv2.flip(frame, 1)
-                cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+                _, self.frame = self.cap.read()
+                self.frame = cv2.flip(self.frame, 1)
+                cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
                 img = Image.fromarray(cv2image)
                 imgtk = ImageTk.PhotoImage(image = img)
                 lmain.imgtk = imgtk
                 lmain.configure(image = imgtk)
-                lmain.after(10, show_frame)
+                if self.continuar_mostrando_webcam:
+                    lmain.after(10, show_frame) # Chama essa própria função, recursivamente, a cada 10ms.
 
             # Porque tem que fazer isso num método e depois chamar o método em vez de só por direto... eu não sei.
             show_frame()
+
         except:
             self.texto_mensagem = tk.Message(self.frame_principal)
             self.texto_mensagem.place(relx=0.309, rely=0.285, relheight=0.292, relwidth=0.341)
@@ -189,8 +192,12 @@ class JanelaPrincipal:
             self.texto_mensagem.configure(width=210)
 
     def botao_tirar_foto_clicado(self, frame_principal, botao_tirar_foto):
+        self.continuar_mostrando_webcam = False
+        img_name = "opencv_frame.png"
+        cv2.imwrite(img_name, self.frame)
+
         self.botao_confirmar_registro = ttk.Button(self.frame_principal, text = "Confirmar registro", command = lambda: self.botao_confirmar_registro_clicado(self.frame_principal))
-        self.botao_confirmar_registro.place(relx=0.422, rely=0.892, height=35, width=116)
+        self.botao_confirmar_registro.place(relx=0.400, rely=0.870, height=35, width=116)
 
         self.botao_tirar_foto.destroy()
 
