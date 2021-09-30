@@ -1,9 +1,9 @@
 import sys
-
+import cv2
+import sqlite3
+from sqlite3 import Error
 import tkinter as tk
 import tkinter.ttk as ttk
-
-import cv2
 from PIL import Image, ImageTk
 
 # Porque precisa desse . antes de 'tooltip' só deus sabe.
@@ -11,20 +11,20 @@ from .tooltip import CreateToolTip
 
 def iniciar_menu_inicial():
     root = tk.Tk()
-    top = JanelaPrincipal (root)
+    top = JanelaPrincipal(root)
     root.mainloop()
 
 class JanelaPrincipal:
-    def __init__(self, top=None):
+    def __init__(self, top = None):
         _bgcolor = '#d9d9d9'  # X11 color: 'gray85'
         _fgcolor = '#000000'  # X11 color: 'black'
         _compcolor = '#d9d9d9' # X11 color: 'gray85'
         _ana1color = '#d9d9d9' # X11 color: 'gray85'
         _ana2color = '#ececec' # Closest X11 color: 'gray92'
-        self.continuar_mostrando_webcam = True
 
         # Isso aqui tá definido como 'self' só pra eu poder definir uma única vez aqui e depois usar no resto da classe.
         self.font9 = "-family {Segoe UI Light} -size 12 -weight bold"
+        self.continuar_mostrando_webcam = True
 
         self.style = ttk.Style()
         if sys.platform == "win32":
@@ -34,7 +34,12 @@ class JanelaPrincipal:
         self.style.configure('.',font = "TkDefaultFont")
         self.style.map('.',background = [('selected', _compcolor), ('active',_ana2color)])
 
-        top.geometry("634x536+796+135")
+        X = int(top.winfo_screenwidth()/2 - top.winfo_reqwidth()/2)
+        Y = int(top.winfo_screenheight()/3 - top.winfo_reqheight()/2)
+        X = int(X * 0.8)
+        Y = int(Y * 0.8)
+
+        top.geometry(f"634x536+{X}+{Y}")
         top.minsize(120, 1)
         top.maxsize(3844, 1061)
         top.resizable(1, 1)
@@ -157,9 +162,9 @@ class JanelaPrincipal:
         self.botao_tirar_foto.configure(takefocus="")
 
         try:
-            self.cap = cv2.VideoCapture(0)
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+            cap = cv2.VideoCapture(0)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
 
             # Cria um label dentro do frame 'frame_principal'.
             lmain = tk.Label(self.webcam_frame)
@@ -167,7 +172,7 @@ class JanelaPrincipal:
 
             # Vai exibir o que tá sendo capturado por 'cv2.VideoCapture(0)'.
             def show_frame(): 
-                _, self.frame = self.cap.read()
+                _, self.frame = cap.read()
                 self.frame = cv2.flip(self.frame, 1)
                 cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
                 img = Image.fromarray(cv2image)
@@ -193,8 +198,8 @@ class JanelaPrincipal:
 
     def botao_tirar_foto_clicado(self, frame_principal, botao_tirar_foto):
         self.continuar_mostrando_webcam = False
-        img_name = "opencv_frame.png"
-        cv2.imwrite(img_name, self.frame)
+        #img_name = "opencv_frame.png"
+        #cv2.imwrite(img_name, self.frame)
 
         self.botao_confirmar_registro = ttk.Button(self.frame_principal, text = "Confirmar registro", command = lambda: self.botao_confirmar_registro_clicado(self.frame_principal))
         self.botao_confirmar_registro.place(relx=0.400, rely=0.870, height=35, width=116)
@@ -202,18 +207,134 @@ class JanelaPrincipal:
         self.botao_tirar_foto.destroy()
 
     def botao_confirmar_registro_clicado(self, frame_principal):
-        for child in frame_principal.winfo_children():
-            child.destroy()
+        if self.validar_dados(self.texto_nome.get(), self.texto_email.get(), self.texto_cpf.get()):
+            for child in frame_principal.winfo_children():
+                child.destroy()
 
-        self.texto_mensagem = tk.Message(self.frame_principal)
-        self.texto_mensagem.place(relx=0.309, rely=0.285, relheight=0.292, relwidth=0.341)
-        self.texto_mensagem.configure(background="#d9d9d9")
-        self.texto_mensagem.configure(font=self.font9)
-        self.texto_mensagem.configure(foreground="#000000")
-        self.texto_mensagem.configure(highlightbackground="#d9d9d9")
-        self.texto_mensagem.configure(highlightcolor="black")
-        self.texto_mensagem.configure(text="Você foi registrado com sucesso.")
-        self.texto_mensagem.configure(width=210)
+            salvar_database()
+
+            self.texto_mensagem = tk.Message(self.frame_principal)
+            self.texto_mensagem.place(relx=0.309, rely=0.285, relheight=0.292, relwidth=0.341)
+            self.texto_mensagem.configure(background="#d9d9d9")
+            self.texto_mensagem.configure(font=self.font9)
+            self.texto_mensagem.configure(foreground="#000000")
+            self.texto_mensagem.configure(highlightbackground="#d9d9d9")
+            self.texto_mensagem.configure(highlightcolor="black")
+            self.texto_mensagem.configure(text="Você foi registrado com sucesso.")
+            self.texto_mensagem.configure(width=210)
+        else:
+            self.frame_temp = ttk.Frame(self.frame_principal)
+            self.frame_temp.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
+            self.frame_temp.configure(relief='groove')
+            self.frame_temp.configure(borderwidth="2")
+            self.frame_temp.configure(relief="groove")
+
+            self.texto_mensagem = tk.Message(self.frame_temp)
+            self.texto_mensagem.place(relx = 0.309, rely = 0.285, relheight = 0.292, relwidth = 0.341)
+            self.texto_mensagem.configure(background = "#d9d9d9")
+            self.texto_mensagem.configure(font = self.font9)
+            self.texto_mensagem.configure(foreground = "#000000")
+            self.texto_mensagem.configure(highlightbackground = "#d9d9d9")
+            self.texto_mensagem.configure(highlightcolor = "black")
+            self.texto_mensagem.configure(text = "Você inseriu dados incorretos.")
+            self.texto_mensagem.configure(anchor='center')
+            self.texto_mensagem.configure(justify='center')
+            self.texto_mensagem.configure(width = 210)
+
+            self.botao_ok = ttk.Button(self.frame_temp, text = "Ok", command = self.frame_temp.destroy)
+            self.botao_ok.place(relx=0.400, rely=0.870, height=35, width=116)
+
+    # Vai retornar 'True' se todos os três forem válidos; 'False' caso algum deles não bata.
+    def validar_dados(self, nome, email, cpf):
+        return not(False in {nome != None, self.verificar_email(email), self.verificar_cpf(cpf)})
+
+    def verificar_email(self, email):
+        arroba = -1
+        ponto = -1
+        contadorDeArrobas = 0
+        email = list(email)
+
+        print(f"{email} - {type(email)}")
+
+        for i in range(len(email)):
+            if email[i] == "@":
+                contadorDeArrobas += 1
+                arroba = i
+            elif email[i] == '.':
+                ponto = i
+
+        if contadorDeArrobas != 1: # Caso o input tenha múltiplos '@'.
+            return False
+        elif arroba == -1 or ponto == -1: # Caso não haja '@' ou '.' no input recebido.
+            return False
+        elif arroba > ponto: # Caso o '@' esteja presente antes do '.'.
+            return False  
+        elif email[ponto] != email[-4] and email[ponto] != email[-3]: # Caso o email não termine em '.net', '.com', '.com.br', etc.
+            return False   
+        elif arroba > 64: # Caso o nome do email exceda 64 caracteres.
+            return False
+        elif (ponto - arroba) > 191: # Caso o domínio exceda 255 caracteres.
+            return False 
+        
+        print("email true")
+        return True
+
+    def verificar_cpf(self, cpf):
+        soma = 0
+        resto = 0
+    
+        print(f"{cpf} - {type(cpf)}")
+
+        # No caso da pessoa digitar um CPF formatado bonitinho.
+        cpf = cpf.replace("-", "")
+        cpf = cpf.replace(".", "")
+
+        if cpf == "00000000000": # Não pode ser tudo 0.
+            return False
+        elif len(cpf) != 11: # CPF sempre tem 11 dígitos.
+            return False
+
+        try:      
+            cpf = [int(x) for x in cpf] # Transforma em lista de inteiros.
+        except ValueError:
+            return False # CPF só tem número, então se caiu aqui não é CPF.
+
+        for i in range(9): # Multiplica os 9 primeiros dígitos por 10, 9, 8, 7, 6, 5, 4, 3 e 2 (respectivamente). 
+            soma = soma + int(cpf[(i+1)-1:(i+1)][0]) * (11 - (i+1)) # 'lista[x:y]' retorna uma lista com os valores entre os dois índices da primeira lista.
+            
+        resto = (soma * 10) % 11 # O 'resto' tem que ser igual ao primeiro digito verificador do CPF.
+
+        if resto == 10 or resto == 11:
+            resto = 0   
+        
+        if resto != int(cpf[9:10][0]):
+            return False
+
+        soma = 0
+
+        for i in range(10): # Multiplica os 10 primeiros dígitos por 11, 10, 9, 8, 7, 6, 5, 4, 3 e 2 (respectivamente).
+            soma = soma + int(cpf[(i+1)-1:(i+1)][0]) * (12 - (i+1))
+            
+        resto = (soma * 10) % 11 # O 'resto' tem que ser igual ao segundo digito verificador do CPF.
+
+        if resto == 10 or resto == 11:
+            resto = 0
+        if resto != int(cpf[10:11][0]):
+            return False
+
+        print("cpf true")
+        return True
+
+    def salvar_database(self):
+        conn = None
+        try:
+            conn = sqlite3.connect("../db")
+            print(sqlite3.version)
+        except Error as e:
+            print(e)
+        finally:
+            if conn:
+                conn.close()
 
     def botao_sair_clicado(self):
         sys.exit(0)
