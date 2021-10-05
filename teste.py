@@ -2,10 +2,9 @@ import tkinter as tk
 import cv2
 from PIL import Image, ImageTk
 
-width, height = 800, 600
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 500)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 300)
 
 root = tk.Tk()
 root.bind('<Escape>', lambda e: root.quit())
