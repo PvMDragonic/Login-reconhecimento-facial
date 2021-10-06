@@ -174,7 +174,7 @@ class JanelaPrincipal:
         elif num == 3:
             self.label_cargo.configure(text=f"Seja bém-vindo(a), ministro(a) {nome}.")
 
-    def botao_validar_clicado(self):
+    def teste(self):
         def convert_array(text): # Converte de texto pra numpy array.
             out = io.BytesIO(text)
             out.seek(0)
@@ -186,89 +186,91 @@ class JanelaPrincipal:
         cur = conn.cursor()
 
         if self.__tabela_registros_existe(cur):
-            self.frame = ttk.Frame(self.top)
-            self.frame.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
-            self.frame.configure(relief='groove')
-            self.frame.configure(borderwidth="2")
-            self.frame.configure(relief="groove")
-
-            self.webcam_frame = tk.Frame(self.frame)
-            self.webcam_frame.place(relx=0.160, rely=0.195, relheight=0.65, relwidth=0.70)
-            self.webcam_frame.configure(relief='groove')
-            self.webcam_frame.configure(borderwidth="2")
-            self.webcam_frame.configure(relief="groove")
-            self.webcam_frame.configure(background="#d9d9d9")
-
-            self.texto_validando = ttk.Label(self.frame)
-            self.texto_validando.place(relx=0.439, rely=0.867, height=19, width=95)
-            self.texto_validando.configure(background="#d9d9d9")
-            self.texto_validando.configure(foreground="#000000")
-            self.texto_validando.configure(font="TkDefaultFont")
-            self.texto_validando.configure(relief="flat")
-            self.texto_validando.configure(anchor='w')
-            self.texto_validando.configure(justify='left')
-            self.texto_validando.configure(text='''VALIDANDO...''')
-
-            self.botao_retornar = ttk.Button(self.frame, text = "Voltar", command = self.frame.destroy)
-            self.botao_retornar.place(relx=0.875, rely=0.915, height=35, width=70)
-            self.botao_retornar.configure(takefocus="")
-            self.botao_retornar.configure(cursor="hand2")
-
             lmain = tk.Label(self.webcam_frame)
             lmain.pack()
 
             trained_data = cv2.CascadeClassifier('./frontal-face-data.xml') # Informações de IA pra detectar rostos.
 
             webcam = cv2.VideoCapture(0)    
+            
+            while True:
+                from time import sleep
 
-            self.rosto = None
-
-            def show_frame():
-                _, captura_webcam = webcam.read()
-
-                captura_webcam = cv2.flip(captura_webcam, 1)
-                
-                if self.rosto is None:
-                    self.rosto = captura_webcam
-
-                captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame'.
-
-                for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
-                    cv2.rectangle(captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-                imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)))
-                lmain.imgtk = imgtk
-                lmain.configure(image = imgtk)
-                lmain.after(10, show_frame)
-
-            show_frame()
-
-            Image.fromarray(cv2.cvtColor(self.rosto, cv2.COLOR_BGR2RGBA)).save("temp2.png")
-            imagem_desconhecida = face_recognition.load_image_file("temp2.png")
-            encoding_desconhecida = face_recognition.face_encodings(imagem_desconhecida)[0]
-
-            cur.execute("SELECT * FROM registros")
-        
-            resultado = []
-
-            for registrado in cur.fetchall():
                 try:
-                    Image.fromarray(registrado[2], 'RGB').save("temp.png")
-                    imagem_registrada = face_recognition.load_image_file("temp.png")
-                    encoding_registrada = face_recognition.face_encodings(imagem_registrada)[0]
-                    resultado = face_recognition.compare_faces([encoding_registrada], encoding_desconhecida, tolerance = 0.6)
-                    
-                    if resultado[0]:
-                        cv2.destroyAllWindows()
-                        self.webcam_frame.destroy()
-                        self.__exibir_dados_confidenciais(registrado[0], registrado[1])
-                        break
-                except:
-                    pass
+                    def show_frame():
+                        _, captura_webcam = webcam.read()
+
+                        captura_webcam = cv2.flip(captura_webcam, 1)
+                        
+                        Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)).save("temp2.png")
+
+                        captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame'.
+
+                        for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
+                            cv2.rectangle(captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                        
+                        imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)))
+                        lmain.imgtk = imgtk
+                        lmain.configure(image = imgtk)
+                        lmain.after(10, show_frame)
+
+                    show_frame()
+
+                    encoding_desconhecida = face_recognition.face_encodings(face_recognition.load_image_file("temp2.png"))[0]
+                    self.texto_validando.configure(text="VALIDANDO...")
+                    cur.execute("SELECT * FROM registros")
+                
+                    resultado = []
+
+                    for registrado in cur.fetchall():
+                        Image.fromarray(registrado[2], 'RGB').save("temp.png")
+                        encoding_img_registrada = face_recognition.face_encodings(face_recognition.load_image_file("temp.png"))[0]
+                        resultado = face_recognition.compare_faces([encoding_img_registrada], encoding_desconhecida, tolerance = 0.6)
+                        
+                        if resultado[0]:
+                            cv2.destroyAllWindows()
+                            self.webcam_frame.destroy()
+                            self.__exibir_dados_confidenciais(registrado[0], registrado[1])
+                            break
+                    break
+                except Exception:
+                    self.texto_validando.configure(text="Não foi possível identificar uma face...")
+                    sleep(1)
         else:
             self.tela_de_aviso("Não há ninguém registrado no momento!")    
    
         conn.close()
+
+    def botao_validar_clicado(self):
+        self.frame = ttk.Frame(self.top)
+        self.frame.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
+        self.frame.configure(relief='groove')
+        self.frame.configure(borderwidth="2")
+        self.frame.configure(relief="groove")
+
+        self.webcam_frame = tk.Frame(self.frame)
+        self.webcam_frame.place(relx=0.160, rely=0.195, relheight=0.65, relwidth=0.70)
+        self.webcam_frame.configure(relief='groove')
+        self.webcam_frame.configure(borderwidth="2")
+        self.webcam_frame.configure(relief="groove")
+        self.webcam_frame.configure(background="#d9d9d9")
+
+        self.texto_validando = ttk.Label(self.frame)
+        self.texto_validando.place(relx=0.439, rely=0.867, height=19, width=200)
+        self.texto_validando.configure(background="#d9d9d9")
+        self.texto_validando.configure(foreground="#000000")
+        self.texto_validando.configure(font="TkDefaultFont")
+        self.texto_validando.configure(relief="flat")
+        self.texto_validando.configure(anchor='w')
+        self.texto_validando.configure(justify='left')
+
+        self.botao_retornar = ttk.Button(self.frame, text = "Voltar", command = self.frame.destroy)
+        self.botao_retornar.place(relx=0.875, rely=0.915, height=35, width=70)
+        self.botao_retornar.configure(takefocus="")
+        self.botao_retornar.configure(cursor="hand2")
+
+        if self.webcam_frame.winfo_exists():
+            self.teste()
 
     def botao_registrar_clicado(self):
         self.frame = ttk.Frame(self.top)
