@@ -174,72 +174,52 @@ class JanelaPrincipal:
         elif num == 3:
             self.label_cargo.configure(text=f"Seja bém-vindo(a), ministro(a) {nome}.")
 
-    def teste(self):
-        def convert_array(text): # Converte de texto pra numpy array.
-            out = io.BytesIO(text)
-            out.seek(0)
-            return np.load(out)
+    def teste1(self, pessoas):
+        while True:
+            from time import sleep
 
-        sqlite3.register_converter("array", convert_array) 
-     
-        conn = self.__conecxao_db()
-        cur = conn.cursor()
+            try:
+                encoding_desconhecida = face_recognition.face_encodings(face_recognition.load_image_file("temp.png"))[0]
+                self.texto_validando.configure(text="VALIDANDO...")
 
-        if self.__tabela_registros_existe(cur):
-            lmain = tk.Label(self.webcam_frame)
-            lmain.pack()
+                for registrado in pessoas:
+                    Image.fromarray(registrado[2], 'RGB').save("temp2.png")
+                    encoding_img_registrada = face_recognition.face_encodings(face_recognition.load_image_file("temp2.png"))[0]
+                    resultado = face_recognition.compare_faces([encoding_img_registrada], encoding_desconhecida, tolerance = 0.6)
+                    
+                    if resultado[0]:
+                        cv2.destroyAllWindows()
+                        self.webcam_frame.destroy()
+                        self.__exibir_dados_confidenciais(registrado[0], registrado[1])
+                        break
+                break
+            except Exception:
+                self.texto_validando.configure(text="Não foi possível identificar uma face...")
+                sleep(1)
 
-            trained_data = cv2.CascadeClassifier('./frontal-face-data.xml') # Informações de IA pra detectar rostos.
+    def teste2(self, lmain):
+        trained_data = cv2.CascadeClassifier('./frontal-face-data.xml') # Informações de IA pra detectar rostos.
 
-            webcam = cv2.VideoCapture(0)    
+        webcam = cv2.VideoCapture(0)
+
+        def show_frame():
+            _, captura_webcam = webcam.read()
+
+            captura_webcam = cv2.flip(captura_webcam, 1)
             
-            while True:
-                from time import sleep
+            Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)).save("temp.png")
 
-                try:
-                    def show_frame():
-                        _, captura_webcam = webcam.read()
+            captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame'.
 
-                        captura_webcam = cv2.flip(captura_webcam, 1)
-                        
-                        Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)).save("temp2.png")
+            for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
+                cv2.rectangle(captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            
+            imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)))
+            lmain.imgtk = imgtk
+            lmain.configure(image = imgtk)
+            lmain.after(10, show_frame)
 
-                        captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame'.
-
-                        for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
-                            cv2.rectangle(captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                        
-                        imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)))
-                        lmain.imgtk = imgtk
-                        lmain.configure(image = imgtk)
-                        lmain.after(10, show_frame)
-
-                    show_frame()
-
-                    encoding_desconhecida = face_recognition.face_encodings(face_recognition.load_image_file("temp2.png"))[0]
-                    self.texto_validando.configure(text="VALIDANDO...")
-                    cur.execute("SELECT * FROM registros")
-                
-                    resultado = []
-
-                    for registrado in cur.fetchall():
-                        Image.fromarray(registrado[2], 'RGB').save("temp.png")
-                        encoding_img_registrada = face_recognition.face_encodings(face_recognition.load_image_file("temp.png"))[0]
-                        resultado = face_recognition.compare_faces([encoding_img_registrada], encoding_desconhecida, tolerance = 0.6)
-                        
-                        if resultado[0]:
-                            cv2.destroyAllWindows()
-                            self.webcam_frame.destroy()
-                            self.__exibir_dados_confidenciais(registrado[0], registrado[1])
-                            break
-                    break
-                except Exception:
-                    self.texto_validando.configure(text="Não foi possível identificar uma face...")
-                    sleep(1)
-        else:
-            self.tela_de_aviso("Não há ninguém registrado no momento!")    
-   
-        conn.close()
+        show_frame()
 
     def botao_validar_clicado(self):
         self.frame = ttk.Frame(self.top)
@@ -269,8 +249,30 @@ class JanelaPrincipal:
         self.botao_retornar.configure(takefocus="")
         self.botao_retornar.configure(cursor="hand2")
 
-        if self.webcam_frame.winfo_exists():
-            self.teste()
+        def convert_array(text): # Converte de texto pra numpy array.
+            out = io.BytesIO(text)
+            out.seek(0)
+            return np.load(out)
+
+        sqlite3.register_converter("array", convert_array) 
+     
+        conn = self.__conecxao_db()
+        cur = conn.cursor()
+
+        if self.__tabela_registros_existe(cur):
+            lmain = tk.Label(self.webcam_frame)
+            lmain.pack()      
+            
+            from threading import Thread
+
+            thread1 = Thread(target=self.teste1, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
+            thread1.start()
+            thread2 = Thread(target=self.teste2, args=(lmain, ), daemon=True)
+            thread2.start()                  
+        else:
+            self.tela_de_aviso("Não há ninguém registrado no momento!")    
+   
+        conn.close()
 
     def botao_registrar_clicado(self):
         self.frame = ttk.Frame(self.top)
