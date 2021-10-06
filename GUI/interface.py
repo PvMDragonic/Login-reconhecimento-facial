@@ -74,19 +74,19 @@ class JanelaPrincipal:
         self.texto_msg_inicio.configure(text='''Este programa é um mock-up de um sistema de login e registro utilizando como base o reconhecimento facial.''')
         self.texto_msg_inicio.configure(wraplength = 300)
 
-        self.botao_validar = ttk.Button(self.top, text = "Login", command = self.botao_validar_clicado)
+        self.botao_validar = ttk.Button(self.top, text = "Login", command = self.__botao_validar_clicado)
         self.botao_validar.place(relx=0.252, rely=0.877, height=35, width=86)
         self.botao_validar.configure(cursor="hand2")
         button1_ttp = CreateToolTip(self.botao_validar, \
             "Clique para fazer login caso você já esteja registrado.")
 
-        self.botao_registrar = ttk.Button(self.top, text = "Registrar", command = self.botao_registrar_clicado)
+        self.botao_registrar = ttk.Button(self.top, text = "Registrar", command = self.__botao_registrar_clicado)
         self.botao_registrar.place(relx=0.426, rely=0.877, height=35, width=96)
         self.botao_registrar.configure(cursor="hand2")
         button2_ttp = CreateToolTip(self.botao_registrar, \
             "Clique para se registrar caso não possua registro, antes de poder fazer login.")
 
-        self.botao_sair = ttk.Button(self.top, text = "Sair", command = self.botao_sair_clicado)
+        self.botao_sair = ttk.Button(self.top, text = "Sair", command = self.__botao_sair_clicado)
         self.botao_sair.place(relx=0.615, rely=0.877, height=35, width=86)
         self.botao_sair.configure(cursor="hand2")
         button3_ttp = CreateToolTip(self.botao_sair, \
@@ -94,7 +94,7 @@ class JanelaPrincipal:
 
         self.top.mainloop()
     
-    def tela_de_aviso(self, msg):
+    def __tela_de_aviso(self, msg):
         self.frame_temp = ttk.Frame(self.top)
         self.frame_temp.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame_temp.configure(relief='groove')
@@ -174,12 +174,13 @@ class JanelaPrincipal:
         elif num == 3:
             self.label_cargo.configure(text=f"Seja bém-vindo(a), ministro(a) {nome}.")
 
-    def teste1(self, pessoas):
-        while True:
-            from time import sleep
+    def __login_validacao(self, pessoas):
+        from time import sleep
 
+        while True:
             try:
                 encoding_desconhecida = face_recognition.face_encodings(face_recognition.load_image_file("temp.png"))[0]
+                # Se rodar daqui pra baixo é porque um rosto foi reconhecido em 'encoding_desconhecida'.
                 self.texto_validando.configure(text="VALIDANDO...")
 
                 for registrado in pessoas:
@@ -193,22 +194,21 @@ class JanelaPrincipal:
                         self.__exibir_dados_confidenciais(registrado[0], registrado[1])
                         break
                 break
-            except Exception:
+            except FileNotFoundError: # Vai cair aqui se esse código rodar mais rápido que o outro thread.
+                sleep(1)
+            except IndexError: # Vai cair aqui se um rosto não for reconhecido em 'encoding_desconhecida'.
                 self.texto_validando.configure(text="Não foi possível identificar uma face...")
                 sleep(1)
 
-    def teste2(self, lmain):
+    def __login_webcam(self, lmain):
         trained_data = cv2.CascadeClassifier('./frontal-face-data.xml') # Informações de IA pra detectar rostos.
 
         webcam = cv2.VideoCapture(0)
 
         def show_frame():
             _, captura_webcam = webcam.read()
-
             captura_webcam = cv2.flip(captura_webcam, 1)
-            
             Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)).save("temp.png")
-
             captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame'.
 
             for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
@@ -221,7 +221,7 @@ class JanelaPrincipal:
 
         show_frame()
 
-    def botao_validar_clicado(self):
+    def __botao_validar_clicado(self):
         self.frame = ttk.Frame(self.top)
         self.frame.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame.configure(relief='groove')
@@ -261,20 +261,22 @@ class JanelaPrincipal:
 
         if self.__tabela_registros_existe(cur):
             lmain = tk.Label(self.webcam_frame)
-            lmain.pack()      
+            lmain.pack() # Tem que dar 'pack()' aqui, senão não aparece o label na GUI. 
             
             from threading import Thread
-
-            thread1 = Thread(target=self.teste1, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
+            
+            # Tem que usar threads pra fazer essas duas coisas em paralelo, senão a interface não roda como deveria.
+            thread1 = Thread(target=self.__login_validacao, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
             thread1.start()
-            thread2 = Thread(target=self.teste2, args=(lmain, ), daemon=True)
+            thread2 = Thread(target=self.__login_webcam, args=(lmain, ), daemon=True)
             thread2.start()                  
         else:
-            self.tela_de_aviso("Não há ninguém registrado no momento!")    
+            self.__tela_de_aviso("Não há ninguém registrado no momento!")    
    
+        # Dá pra fechar aqui, porque os dados do db já vão ter sido enviados pro 'thread1'.
         conn.close()
 
-    def botao_registrar_clicado(self):
+    def __botao_registrar_clicado(self):
         self.frame = ttk.Frame(self.top)
         self.frame.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame.configure(relief='groove')
@@ -336,7 +338,7 @@ class JanelaPrincipal:
         self.webcam_frame.configure(relief="groove")
         self.webcam_frame.configure(background="#d9d9d9")
 
-        self.botao_tirar_foto = ttk.Button(self.frame, text = "Tirar foto", command = self.botao_tirar_foto_clicado)
+        self.botao_tirar_foto = ttk.Button(self.frame, text = "Tirar foto", command = self.__botao_tirar_foto_clicado)
         self.botao_tirar_foto.place(relx=0.428, rely=0.892, height=35, width=86)
         self.botao_tirar_foto.configure(takefocus="")
         self.botao_tirar_foto.configure(cursor="hand2")
@@ -363,34 +365,34 @@ class JanelaPrincipal:
                 imgtk = ImageTk.PhotoImage(image = img)
                 lmain.imgtk = imgtk
                 lmain.configure(image = imgtk)
+
                 if self.continuar_mostrando_webcam:
                     lmain.after(10, show_frame) # Chama essa própria função, recursivamente, a cada 10ms.
 
-            # Porque tem que fazer isso num método e depois chamar o método em vez de só por direto... eu não sei.
             show_frame()
         except:
-            self.tela_de_aviso("Ocorreu um erro! Sua webcam não está disponível.")
+            self.__tela_de_aviso("Ocorreu um erro! Sua webcam não está disponível.")
 
-    def botao_tirar_foto_clicado(self):
+    def __botao_tirar_foto_clicado(self):
         self.continuar_mostrando_webcam = False
 
-        self.botao_confirmar_registro = ttk.Button(self.frame, text = "Confirmar registro", command = self.botao_confirmar_registro_clicado)
+        self.botao_confirmar_registro = ttk.Button(self.frame, text = "Confirmar registro", command = self.__botao_confirmar_registro_clicado)
         self.botao_confirmar_registro.place(relx=0.400, rely=0.892, height=35, width=116)
         self.botao_confirmar_registro.configure(cursor="hand2")
 
         self.botao_tirar_foto.destroy()
 
-    def botao_confirmar_registro_clicado(self):
+    def __botao_confirmar_registro_clicado(self):
         nome = self.texto_nome.get()
 
         if nome != "":    
-            self.salvar_database(nome, self.cargo_selecionado.get())
+            self.__salvar_database(nome, self.cargo_selecionado.get())
             self.frame.destroy()
-            self.tela_de_aviso("Você foi registrado com sucesso!")
+            self.__tela_de_aviso("Você foi registrado com sucesso!")
         else:
-            self.tela_de_aviso("Você não inseriu um nome.")
+            self.__tela_de_aviso("Você não inseriu um nome.")
 
-    def salvar_database(self, nome, cargo):
+    def __salvar_database(self, nome, cargo):
         def adapt_array(arr): # Converte numpy array pra texto, pra daí salvar o texto na database.
             out = io.BytesIO()
             np.save(out, arr)
@@ -409,5 +411,5 @@ class JanelaPrincipal:
 
         cv2.destroyAllWindows()
 
-    def botao_sair_clicado(self):
+    def __botao_sair_clicado(self):
         sys.exit(0)
