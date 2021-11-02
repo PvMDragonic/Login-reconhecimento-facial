@@ -3,13 +3,14 @@ import sys
 import cv2
 import sqlite3
 import numpy as np
+from time import sleep
 from threading import Thread
 from sqlite3 import Error
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import IntVar
 from PIL import Image, ImageTk, UnidentifiedImageError
-import face_recognition
+import face_recognition # Instalar essa dependência é um saco, boa sorte.
 
 # Porque precisa desse . antes de 'tooltip' só deus sabe.
 from .tooltip import CreateToolTip
@@ -75,19 +76,19 @@ class JanelaPrincipal:
         self.texto_msg_inicio.configure(text='''Este programa é um mock-up de um sistema de login e registro utilizando como base o reconhecimento facial.''')
         self.texto_msg_inicio.configure(wraplength = 300)
 
-        self.botao_validar = ttk.Button(self.top, text = "Login", command = self.__botao_validar_clicado)
-        self.botao_validar.place(relx=0.252, rely=0.877, height=35, width=86)
-        self.botao_validar.configure(cursor="hand2")
-        button1_ttp = CreateToolTip(self.botao_validar, \
+        self.botao_login = ttk.Button(self.top, text = "Login", command = self._botao_login_clicado)
+        self.botao_login.place(relx=0.252, rely=0.877, height=35, width=86)
+        self.botao_login.configure(cursor="hand2")
+        button1_ttp = CreateToolTip(self.botao_login, \
             "Clique para fazer login caso você já esteja registrado.")
 
-        self.botao_registrar = ttk.Button(self.top, text = "Registrar", command = self.__botao_registrar_clicado)
+        self.botao_registrar = ttk.Button(self.top, text = "Registrar", command = self._botao_registrar_clicado)
         self.botao_registrar.place(relx=0.426, rely=0.877, height=35, width=96)
         self.botao_registrar.configure(cursor="hand2")
         button2_ttp = CreateToolTip(self.botao_registrar, \
             "Clique para se registrar caso não possua registro, antes de poder fazer login.")
 
-        self.botao_sair = ttk.Button(self.top, text = "Sair", command = self.__botao_sair_clicado)
+        self.botao_sair = ttk.Button(self.top, text = "Sair", command = self._botao_sair_clicado)
         self.botao_sair.place(relx=0.615, rely=0.877, height=35, width=86)
         self.botao_sair.configure(cursor="hand2")
         button3_ttp = CreateToolTip(self.botao_sair, \
@@ -95,7 +96,8 @@ class JanelaPrincipal:
 
         self.top.mainloop()
     
-    def __tela_de_aviso(self, msg):
+    def _tela_de_aviso(self, msg):
+        """Exibe uma tela de aviso, com uma mensagem, em cima do resto do programa."""
         self.frame_registro_temp = ttk.Frame(self.top)
         self.frame_registro_temp.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame_registro_temp.configure(relief='groove')
@@ -117,7 +119,8 @@ class JanelaPrincipal:
         self.botao_ok = ttk.Button(self.frame_registro_temp, text = "Ok", command = self.frame_registro_temp.destroy)
         self.botao_ok.place(relx=0.400, rely=0.870, height=35, width=116)
 
-    def __conecxao_db(self):
+    def _conecxao_db(self):
+        """Conecta com a database e retorna isso para uma variável."""
         try:
             return sqlite3.connect("database/pessoas.db", detect_types = sqlite3.PARSE_DECLTYPES)
         except sqlite3.OperationalError:
@@ -126,10 +129,12 @@ class JanelaPrincipal:
         finally:
             return sqlite3.connect("database/pessoas.db", detect_types = sqlite3.PARSE_DECLTYPES)
 
-    def __tabela_registros_existe(self, cur):
+    def _tabela_registros_existe(self, cur):
+        """Verifica se existe a tabela correta na database."""
         return not(cur.execute("""SELECT name FROM sqlite_master WHERE type='table' AND name='registros';""").fetchall() == [])
 
-    def __exibir_dados_confidenciais(self, nome, num):
+    def _exibir_dados_confidenciais(self, nome, num):
+        """Exibe os dados baseado no cargo que dada pessoa registrada tem."""
         self.style.configure('TNotebook.Tab', background = self._bgcolor)
         self.style.configure('TNotebook.Tab', foreground = self._fgcolor)
         self.style.map('TNotebook.Tab', background = [('selected', self._compcolor), ('active', self._ana2color)])
@@ -167,6 +172,7 @@ class JanelaPrincipal:
         self.label_cargo.configure(disabledforeground = "#a3a3a3")
         self.label_cargo.configure(font = self.font9)
         self.label_cargo.configure(foreground = "#000000")
+
         if num == 1:
             self.label_cargo.configure(text=f"Seja bém-vindo(a), {nome}.")
         elif num == 2:
@@ -174,12 +180,11 @@ class JanelaPrincipal:
         elif num == 3:
             self.label_cargo.configure(text=f"Seja bém-vindo(a), ministro(a) {nome}.")
 
-    def __login_validacao(self, pessoas):
-        from time import sleep
-
+    def _login_validacao(self, pessoas):
+        """Faz o processo de login, vendo se o que a webcam vê bate com algo registrado."""
         while True:
             try:
-                encoding_desconhecida = face_recognition.face_encodings(face_recognition.load_image_file("temp.png"))[0]
+                encoding_desconhecida = face_recognition.face_encodings(self.captura_webcam)[0]
                 # Se rodar daqui pra baixo é porque um rosto foi reconhecido em 'encoding_desconhecida'.
                 self.texto_validando.place(relx=0.439, rely=0.867, height=19, width=200)
                 self.texto_validando.configure(text="VALIDANDO...")
@@ -187,49 +192,53 @@ class JanelaPrincipal:
                 resultado = []
 
                 for registrado in pessoas:
-                    Image.fromarray(registrado[2], 'RGB').save("temp2.png")
-                    encoding_img_registrada = face_recognition.face_encodings(face_recognition.load_image_file("temp2.png"))[0]
+                    encoding_img_registrada = face_recognition.face_encodings(registrado[2])[0]
                     resultado = face_recognition.compare_faces([encoding_img_registrada], encoding_desconhecida, tolerance = 0.6)
                     
                     if resultado[0]:
-                        sleep(3)
-
+                        sleep(2)
                         cv2.destroyAllWindows()
                         self.webcam_frame_registro.destroy()
-                        self.__exibir_dados_confidenciais(registrado[0], registrado[1])
+                        self._exibir_dados_confidenciais(registrado[0], registrado[1])
                         break
 
                 if resultado[0]:
                     break
                 else:
-                    sleep(3)
+                    sleep(2)
             except (IndexError, FileNotFoundError, UnidentifiedImageError):
                 self.texto_validando.place(relx=0.325, rely=0.867, height=19, width=200)
                 self.texto_validando.configure(text="Não foi possível identificar uma face...")
                 sleep(1)
+            except AttributeError: # Vai cair aqui se o 'thread2' tentar ler o feed da webcam antes do 'thread1' criar essa imagem.
+                sleep(0.1)
 
-    def __login_webcam(self, lmain):
+    def _login_webcam(self):
+        """Exibe o feed da webcam, demarcando com um quadrado os rostos identificados; utilizado na hora do login."""
         trained_data = cv2.CascadeClassifier('./frontal-face-data.xml') # Informações de IA pra detectar rostos.
 
         webcam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-        def mostrar_webcam():
-            _, captura_webcam = webcam.read()
-            captura_webcam = cv2.flip(captura_webcam, 1)
-            Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)).save("temp.png")
-            captura_webcam = cv2.resize(captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame_registro'.
+        lmain = tk.Label(self.webcam_frame_registro)
+        lmain.pack() # Tem que dar 'pack()' aqui, senão não aparece o label na GUI.
 
-            for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2GRAY)):
-                cv2.rectangle(captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        def mostrar_webcam():
+            _, self.captura_webcam = webcam.read()
+            self.captura_webcam = cv2.flip(self.captura_webcam, 1)
+            self.captura_webcam = cv2.resize(self.captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'webcam_frame_registro'.
+
+            for (x, y, w, h) in trained_data.detectMultiScale(cv2.cvtColor(self.captura_webcam, cv2.COLOR_BGR2GRAY)):
+                cv2.rectangle(self.captura_webcam, (x, y), (x + w, y + h), (0, 255, 0), 2)
             
-            imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(captura_webcam, cv2.COLOR_BGR2RGBA)))
+            imgtk = ImageTk.PhotoImage(image = Image.fromarray(cv2.cvtColor(self.captura_webcam, cv2.COLOR_BGR2RGBA)))
             lmain.imgtk = imgtk
             lmain.configure(image = imgtk)
-            lmain.after(10, mostrar_webcam)
+            lmain.after(10, mostrar_webcam) # Chama essa própria função, recursivamente, a cada 10ms.
 
         mostrar_webcam()
 
-    def __botao_validar_clicado(self):
+    def _botao_login_clicado(self):
+        """Chamado pelo botão 'Login' na tela principal do programa."""
         self.frame_registro = ttk.Frame(self.top)
         self.frame_registro.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame_registro.configure(relief='groove')
@@ -256,32 +265,32 @@ class JanelaPrincipal:
         self.botao_retornar.configure(takefocus="")
         self.botao_retornar.configure(cursor="hand2")
 
-        def convert_array(text): # Converte de texto pra numpy array.
+        def converter_array(text):
+            """Converte texto para numpy array."""
             out = io.BytesIO(text)
             out.seek(0)
             return np.load(out)
 
-        sqlite3.register_converter("array", convert_array) 
+        sqlite3.register_converter("array", converter_array) 
      
-        conn = self.__conecxao_db()
+        conn = self._conecxao_db()
         cur = conn.cursor()
 
-        if self.__tabela_registros_existe(cur):
-            lmain = tk.Label(self.webcam_frame_registro)
-            lmain.pack() # Tem que dar 'pack()' aqui, senão não aparece o label na GUI. 
-            
+        if self._tabela_registros_existe(cur):   
             # Tem que usar threads pra fazer essas duas coisas em paralelo, senão a interface não roda como deveria.
-            thread1 = Thread(target=self.__login_validacao, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
+            thread1 = Thread(target=self._login_webcam, args=(), daemon=True)
             thread1.start()
-            thread2 = Thread(target=self.__login_webcam, args=(lmain, ), daemon=True)
-            thread2.start()                  
+            thread2 = Thread(target=self._login_validacao, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
+            thread2.start()
+                              
         else:
-            self.__tela_de_aviso("Não há ninguém registrado no momento!")    
+            self._tela_de_aviso("Não há ninguém registrado no momento!")    
    
         # Dá pra fechar aqui, porque os dados do db já vão ter sido enviados pro 'thread1'.
         conn.close()
 
-    def __botao_registrar_clicado(self):
+    def _botao_registrar_clicado(self):
+        """Chamado pelo botão 'Registrar' na tela principal do programa."""
         self.frame_registro = ttk.Frame(self.top)
         self.frame_registro.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
         self.frame_registro.configure(relief='groove')
@@ -343,10 +352,15 @@ class JanelaPrincipal:
         self.webcam_frame_registro.configure(relief="groove")
         self.webcam_frame_registro.configure(background="#d9d9d9")
 
-        self.botao_tirar_foto = ttk.Button(self.frame_registro, text = "Tirar foto", command = self.__botao_tirar_foto_clicado)
-        self.botao_tirar_foto.place(relx=0.428, rely=0.892, height=35, width=86)
+        self.botao_confirmar_registro = ttk.Button(self.frame_registro, text = "Confirmar registro", command = self._botao_confirmar_registro_clicado)
+        self.botao_confirmar_registro.place(relx=0.400, rely=0.892, height=35, width=116)
+        self.botao_confirmar_registro.configure(takefocus="")
+        self.botao_confirmar_registro.configure(cursor="hand2")
+
+        self.botao_tirar_foto = ttk.Button(self.frame_registro, text = "Tirar foto", command = self._botao_tirar_foto_clicado)
+        self.botao_tirar_foto.place(relx=0.400, rely=0.892, height=35, width=116)
         self.botao_tirar_foto.configure(takefocus="")
-        self.botao_tirar_foto.configure(cursor="hand2")
+        self.botao_tirar_foto.configure(cursor="hand2")      
 
         self.botao_retornar = ttk.Button(self.frame_registro, text = "Voltar", command = self.frame_registro.destroy)
         self.botao_retornar.place(relx=0.875, rely=0.915, height=35, width=70)
@@ -356,66 +370,108 @@ class JanelaPrincipal:
         try:
             self.continuar_mostrando_webcam = True
 
-            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)        
 
-            # Cria um label dentro do frame_registro 'frame_registro_principal'.
-            lmain = tk.Label(self.webcam_frame_registro)
-            lmain.pack()         
-
-            # Vai exibir o que tá sendo capturado por 'cv2.VideoCapture(0)'.
             def mostrar_webcam():
-                _, self.captura_webcam = cap.read()
-                self.captura_webcam = cv2.flip(self.captura_webcam, 1)
-                self.captura_webcam = cv2.resize(self.captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'self.webcam_frame_registro'.
-                cv2image = cv2.cvtColor(self.captura_webcam, cv2.COLOR_BGR2RGBA)
-                img = Image.fromarray(cv2image)
-                imgtk = ImageTk.PhotoImage(image = img)
-                lmain.imgtk = imgtk
-                lmain.configure(image = imgtk)
+                lmain = tk.Label(self.webcam_frame_registro)
+                lmain.pack() 
 
-                if self.continuar_mostrando_webcam:
-                    lmain.after(10, mostrar_webcam) # Chama essa própria função, recursivamente, a cada 10ms.
+                while True:
+                    _, self.captura_webcam = cap.read()
+                    self.captura_webcam = cv2.flip(self.captura_webcam, 1)
+                    self.captura_webcam = cv2.resize(self.captura_webcam, (430, 350)) # 430x350 é o tamanho que eu achei pra casar certinho com o 'self.webcam_frame_registro'.
+                    cv2image = cv2.cvtColor(self.captura_webcam, cv2.COLOR_BGR2RGBA)
+                    img = Image.fromarray(cv2image)
+                    imgtk = ImageTk.PhotoImage(image = img)
+                    lmain.imgtk = imgtk
+                    lmain.configure(image = imgtk)
 
-            mostrar_webcam()
+                    if self.continuar_mostrando_webcam:
+                        sleep(0.01)
+                        continue
+                    else:
+                        while True:
+                            sleep(0.005)
+                            if self.continuar_mostrando_webcam:
+                                break
+                            else:
+                                continue
+
+            # Tem que ser com thread pra eu poder reativar o feed da webcam (se for necessário).
+            self.thread1 = Thread(target=mostrar_webcam, daemon=True)
+            self.thread1.start() 
         except:
-            self.__tela_de_aviso("Ocorreu um erro! Sua webcam não está disponível.")
+            self._tela_de_aviso("Ocorreu um erro! Sua webcam não está disponível.")
 
-    def __botao_tirar_foto_clicado(self):
+    def _botao_tirar_foto_clicado(self):
+        """Chamado pelo botão 'Tirar foto', dentro da interface de registro de novo usuário."""
         cv2.destroyAllWindows()
         self.continuar_mostrando_webcam = False
+        self.botao_confirmar_registro.lift()
 
-        self.botao_confirmar_registro = ttk.Button(self.frame_registro, text = "Confirmar registro", command = self.__botao_confirmar_registro_clicado)
-        self.botao_confirmar_registro.place(relx=0.400, rely=0.892, height=35, width=116)
-        self.botao_confirmar_registro.configure(cursor="hand2")
-
-        self.botao_tirar_foto.destroy()
-
-    def __botao_confirmar_registro_clicado(self):
+    def _botao_confirmar_registro_clicado(self):
+        """Chamado pelo botão 'Confirmar """
         nome = self.texto_nome.get()
 
         if nome != "":    
-            self.__salvar_database(nome, self.cargo_selecionado.get())
-            self.frame_registro.destroy()
-            self.__tela_de_aviso("Você foi registrado com sucesso!")
+            self._salvar_database(nome, self.cargo_selecionado.get())
         else:
-            self.__tela_de_aviso("Você não inseriu um nome.")
+            self._tela_de_aviso("Você não inseriu um nome.")
 
-    def __salvar_database(self, nome, cargo):
-        def adapt_array(arr): # Converte numpy array pra texto, pra daí salvar o texto na database.
+    def _salvar_database(self, nome, cargo):
+        """Registra, se cabível, um novo usuário na database; dá aviso caso contrário."""
+        def ja_cadastrado(pessoas):
+            try:
+                encoding_desconhecida = face_recognition.face_encodings(self.captura_webcam)[0]
+                # Se rodar daqui pra baixo é porque um rosto foi reconhecido em 'encoding_desconhecida'.
+
+                for registrado in pessoas:
+                    encoding_img_registrada = face_recognition.face_encodings(registrado[2])[0]
+                    resultado = face_recognition.compare_faces([encoding_img_registrada], encoding_desconhecida, tolerance = 0.6)
+                    
+                    if resultado[0]:
+                        return 1
+                return 0
+            except (IndexError, FileNotFoundError, UnidentifiedImageError):
+                return -1
+
+        def adaptar_array(arr):
+            """Converte numpy array para texto, para poder salvar na database."""
             out = io.BytesIO()
             np.save(out, arr)
             out.seek(0)
             return sqlite3.Binary(out.read())
 
-        conn = self.__conecxao_db()
+        def converter_array(text):
+            """Converte texto para numpy array, pra ser usado pelo programa."""
+            out = io.BytesIO(text)
+            out.seek(0)
+            return np.load(out)
 
-        sqlite3.register_adapter(np.ndarray, adapt_array) # Cria um tipo customizado de dado pra salvar na database. No caso, 'array'.
+        sqlite3.register_converter("array", converter_array)
+        sqlite3.register_adapter(np.ndarray, adaptar_array)
 
+        conn = self._conecxao_db() 
         cur = conn.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS registros (nome text, cargo int, arr array)")
-        cur.execute("INSERT INTO registros (nome, cargo, arr) VALUES (?, ?, ?)", (nome, cargo, self.captura_webcam, ))
-        conn.commit()
+
+        temp = ja_cadastrado(cur.execute("SELECT * FROM registros").fetchall())
+        if temp == 1:
+            self._tela_de_aviso("Você já está registrado neste programa.")
+            self.continuar_mostrando_webcam = True
+            self.botao_confirmar_registro.lower()
+        elif temp == 0:         
+            cur.execute("INSERT INTO registros (nome, cargo, arr) VALUES (?, ?, ?)", (nome, cargo, self.captura_webcam, ))
+            conn.commit()
+            self.thread1.join(0.001) # Fecha o thread, só pra não dar msg de erro no console.
+            self.frame_registro.destroy()
+            self._tela_de_aviso("Você foi registrado com sucesso!")
+        elif temp == -1:
+            self._tela_de_aviso("Nenhum rosto foi detectado na imagem.")
+            self.continuar_mostrando_webcam = True
+            self.botao_confirmar_registro.lower()
         conn.close()
 
-    def __botao_sair_clicado(self):
+    def _botao_sair_clicado(self):
+        """Chamado pelo botão 'Sair' na tela principal do programa."""
         sys.exit(0)
