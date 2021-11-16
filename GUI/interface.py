@@ -13,7 +13,7 @@ from PIL import Image, ImageTk, UnidentifiedImageError
 import face_recognition # Instalar essa dependência é um saco, boa sorte.
 
 # Porque precisa desse . antes de 'tooltip' só deus sabe.
-from .tooltip import CreateToolTip
+from .tooltip import CriarToolTip
 
 def iniciar_menu_inicial():
     top = JanelaPrincipal()
@@ -56,8 +56,7 @@ class JanelaPrincipal:
         self.texto_bemvindo.place(relx=0.325, rely=0.12, height=49, width=205)
         self.texto_bemvindo.configure(background="#d9d9d9")
         self.texto_bemvindo.configure(foreground="#000000")
-        self.texto_bemvindo.configure(font="-family {Yu Mincho Demibold} -size 24 -weight bold "  \
-            "-underline 1")
+        self.texto_bemvindo.configure(font="-family {Yu Mincho Demibold} -size 24 -weight bold " "-underline 1")
         self.texto_bemvindo.configure(relief="flat")
         self.texto_bemvindo.configure(anchor='w')
         self.texto_bemvindo.configure(justify='center')
@@ -79,19 +78,19 @@ class JanelaPrincipal:
         self.botao_login = ttk.Button(self.top, text = "Login", command = self._botao_login_clicado)
         self.botao_login.place(relx=0.252, rely=0.877, height=35, width=86)
         self.botao_login.configure(cursor="hand2")
-        button1_ttp = CreateToolTip(self.botao_login, \
+        button1_ttp = CriarToolTip(self.botao_login, \
             "Clique para fazer login caso você já esteja registrado.")
 
         self.botao_registrar = ttk.Button(self.top, text = "Registrar", command = self._botao_registrar_clicado)
         self.botao_registrar.place(relx=0.426, rely=0.877, height=35, width=96)
         self.botao_registrar.configure(cursor="hand2")
-        button2_ttp = CreateToolTip(self.botao_registrar, \
+        button2_ttp = CriarToolTip(self.botao_registrar, \
             "Clique para se registrar caso não possua registro, antes de poder fazer login.")
 
         self.botao_sair = ttk.Button(self.top, text = "Sair", command = self._botao_sair_clicado)
         self.botao_sair.place(relx=0.615, rely=0.877, height=35, width=86)
         self.botao_sair.configure(cursor="hand2")
-        button3_ttp = CreateToolTip(self.botao_sair, \
+        button3_ttp = CriarToolTip(self.botao_sair, \
             "Clique para sair e encerrar o programa.")
 
         self.top.mainloop()
@@ -205,10 +204,12 @@ class JanelaPrincipal:
                 if resultado[0]:
                     break
                 else:
+                    self.texto_validando.place(relx=0.285, rely=0.867, height=19, width=300)
+                    self.texto_validando.configure(text="Você não está cadastrado neste banco de dados.")
                     sleep(2)
             except (IndexError, FileNotFoundError, UnidentifiedImageError):
                 self.texto_validando.place(relx=0.325, rely=0.867, height=19, width=200)
-                self.texto_validando.configure(text="Não foi possível identificar uma face...")
+                self.texto_validando.configure(text="Não foi possível identificar uma face.")
                 sleep(1)
             except AttributeError: # Vai cair aqui se o 'thread2' tentar ler o feed da webcam antes do 'thread1' criar essa imagem.
                 sleep(0.1)
@@ -239,32 +240,6 @@ class JanelaPrincipal:
 
     def _botao_login_clicado(self):
         """Chamado pelo botão 'Login' na tela principal do programa."""
-        self.frame_registro = ttk.Frame(self.top)
-        self.frame_registro.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
-        self.frame_registro.configure(relief='groove')
-        self.frame_registro.configure(borderwidth="2")
-        self.frame_registro.configure(relief="groove")
-
-        self.webcam_frame_registro = tk.Frame(self.frame_registro)
-        self.webcam_frame_registro.place(relx=0.150, rely=0.195, relheight=0.65, relwidth=0.70)
-        self.webcam_frame_registro.configure(relief='groove')
-        self.webcam_frame_registro.configure(borderwidth="2")
-        self.webcam_frame_registro.configure(relief="groove")
-        self.webcam_frame_registro.configure(background="#d9d9d9")
-
-        self.texto_validando = ttk.Label(self.frame_registro)
-        self.texto_validando.configure(background="#d9d9d9")
-        self.texto_validando.configure(foreground="#000000")
-        self.texto_validando.configure(font="TkDefaultFont")
-        self.texto_validando.configure(relief="flat")
-        self.texto_validando.configure(anchor='w')
-        self.texto_validando.configure(justify='left')
-
-        self.botao_retornar = ttk.Button(self.frame_registro, text = "Voltar", command = self.frame_registro.destroy)
-        self.botao_retornar.place(relx=0.875, rely=0.915, height=35, width=70)
-        self.botao_retornar.configure(takefocus="")
-        self.botao_retornar.configure(cursor="hand2")
-
         def converter_array(text):
             """Converte texto para numpy array."""
             out = io.BytesIO(text)
@@ -276,13 +251,36 @@ class JanelaPrincipal:
         conn = self._conecxao_db()
         cur = conn.cursor()
 
-        if self._tabela_registros_existe(cur):   
+        if self._tabela_registros_existe(cur):  
+            self.frame_registro = ttk.Frame(self.top)
+            self.frame_registro.place(relx=0.014, rely=0.017, relheight=0.96, relwidth=0.97)
+            self.frame_registro.configure(relief='groove')
+            self.frame_registro.configure(borderwidth="2")
+            self.frame_registro.configure(relief="groove")
+
+            self.webcam_frame_registro = tk.Frame(self.frame_registro)
+            self.webcam_frame_registro.place(relx=0.150, rely=0.195, relheight=0.65, relwidth=0.70)
+            self.webcam_frame_registro.configure(relief='groove')
+            self.webcam_frame_registro.configure(borderwidth="2")
+            self.webcam_frame_registro.configure(relief="groove")
+            self.webcam_frame_registro.configure(background="#d9d9d9")
+
+            self.texto_validando = ttk.Label(self.frame_registro)
+            self.texto_validando.configure(background="#d9d9d9")
+            self.texto_validando.configure(foreground="#000000")
+            self.texto_validando.configure(font="TkDefaultFont")
+            self.texto_validando.configure(relief="flat")
+            self.texto_validando.configure(anchor='w')
+            self.texto_validando.configure(justify='left')
+
+            self.botao_retornar = ttk.Button(self.frame_registro, text = "Voltar", command = self.frame_registro.destroy)
+            self.botao_retornar.place(relx=0.875, rely=0.915, height=35, width=70)
+            self.botao_retornar.configure(takefocus="")
+            self.botao_retornar.configure(cursor="hand2")
+
             # Tem que usar threads pra fazer essas duas coisas em paralelo, senão a interface não roda como deveria.
-            thread1 = Thread(target=self._login_webcam, args=(), daemon=True)
-            thread1.start()
-            thread2 = Thread(target=self._login_validacao, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True)
-            thread2.start()
-                              
+            Thread(target=self._login_webcam, args=(), daemon=True).start()
+            Thread(target=self._login_validacao, args=(cur.execute("SELECT * FROM registros").fetchall(), ), daemon=True).start()                           
         else:
             self._tela_de_aviso("Não há ninguém registrado no momento!")    
    
@@ -398,7 +396,7 @@ class JanelaPrincipal:
                                 continue
 
             # Tem que ser com thread pra eu poder reativar o feed da webcam (se for necessário).
-            self.thread1 = Thread(target=mostrar_webcam, daemon=True)
+            self.thread1 = Thread(target = mostrar_webcam, daemon = True)
             self.thread1.start() 
         except:
             self._tela_de_aviso("Ocorreu um erro! Sua webcam não está disponível.")
